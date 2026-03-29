@@ -1,0 +1,13 @@
+.terraform/
+# Ignore all credential files
+*.tfvars
+*.tfvars.json
+
+# Ignore the SSH keys we just made
+airflow_github_key
+airflow_github_key.pub
+
+# Ignore terraform state locals
+.terraform/
+*.tfstate
+*.tfstate.backup
