@@ -18,3 +18,8 @@ variable "authorized_ips" {
   type        = string
   description = "Public CIDR (VPN/Office IP) allowed to access GKE Master API"
 }
+
+variable "authorized_vpn_cidr" {
+  type        = string
+  description = "DDL Section 3: The authorized VPN range for K8s API access"
+}

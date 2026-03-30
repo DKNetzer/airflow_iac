@@ -1,8 +1,9 @@
+# ==============================================================================
+# DDL SECTION 1: TERRAFORM CONFIGURATION & BACKEND
+# ==============================================================================
 terraform {
   required_version = ">= 1.5.0"
 
-  # Secure Backend for State Locking
-  # Note: Variables are not allowed in the backend block
   backend "gcs" {
     bucket = "tf-state-dkn-airflow"
     prefix = "terraform/state"
@@ -11,11 +12,12 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.10.0"
+      # DDL Requirement: Using 5.45.2 for latest Autopilot features
+      version = "~> 5.45.2" 
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "~> 5.10.0"
+      version = "~> 5.45.2"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -28,25 +30,67 @@ terraform {
   }
 }
 
-# Standard Provider
+# ==============================================================================
+# DDL SECTION 1 & 12: PROVIDERS & SERVICES
+# ==============================================================================
 provider "google" {
   project = var.project_id
   region  = var.region
 }
 
-# Beta Provider (Required for certain Autopilot & Secret Manager features)
 provider "google-beta" {
   project = var.project_id
   region  = var.region
 }
 
-# Phase 2: The Networking Foundation
+# DDL Section 12: Ensure mandatory APIs are enabled
+resource "google_project_service" "compute" {
+  service            = "compute.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "container" {
+  service            = "container.googleapis.com"
+  disable_on_destroy = false
+}
+
+# DDL Section 5.3: Dynamic Kubernetes & Helm Authentication
+# This fetches a fresh OAuth2 token from Google to talk to the K8s API
+data "google_client_config" "default" {}
+
+provider "kubernetes" {
+  host                   = "https://${module.gke.endpoint}"
+  token                  = data.google_client_config.default.access_token
+  cluster_ca_certificate = base64decode(module.gke.ca_certificate)
+}
+
+provider "helm" {
+  kubernetes = {
+    host                   = "https://${module.gke.endpoint}"
+    token                  = data.google_client_config.default.access_token
+    cluster_ca_certificate = base64decode(module.gke.ca_certificate)
+  }
+}
+
+# ==============================================================================
+# DDL SECTION 3: NETWORKING FOUNDATION
+# ==============================================================================
 module "networking" {
-  source         = "./modules/networking"
-  project_id     = var.project_id
-  region         = var.region
-  customer       = var.customer
-  # CIDRs matching our DDL specification
-  vpc_cidr       = "10.10.0.0/20"
-  peering_cidr   = "10.13.0.0/28" 
+  source              = "./modules/networking"
+  project_id          = var.project_id
+  region              = var.region
+  customer            = var.customer
+  authorized_vpn_cidr = var.authorized_vpn_cidr
+}
+
+# ==============================================================================
+# DDL SECTION 5: GKE CLUSTER LAYER (AUTOPILOT)
+# ==============================================================================
+module "gke" {
+  source     = "./modules/gke"
+  project_id = var.project_id
+  region     = var.region
+  customer   = var.customer
+  network_id = module.networking.network_id
+  subnet_id  = module.networking.subnet_id
 }
