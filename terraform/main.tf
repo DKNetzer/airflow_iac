@@ -94,3 +94,18 @@ module "gke" {
   network_id = module.networking.network_id
   subnet_id  = module.networking.subnet_id
 }
+
+module "db" {
+  source      = "./modules/db"
+  project_id  = var.project_id
+  region      = var.region
+  customer    = var.customer
+  network_id  = module.networking.network_id
+  db_password = var.db_password # Define this in your root variables.tf
+}
+
+module "iam" {
+  source     = "./modules/iam"
+  project_id = var.project_id
+  customer   = var.customer
+}

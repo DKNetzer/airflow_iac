@@ -23,3 +23,9 @@ variable "authorized_vpn_cidr" {
   type        = string
   description = "DDL Section 3: The authorized VPN range for K8s API access"
 }
+
+variable "db_password" {
+  type        = string
+  description = "The password for the Airflow metadata database"
+  sensitive   = true
+}
