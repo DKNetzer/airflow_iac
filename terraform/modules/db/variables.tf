@@ -7,5 +7,6 @@ variable "cloud_sql_tier" {
   type    = string
   default = "db-g1-small"
 }
+
 # db_password intentionally removed — IAM auth only
 

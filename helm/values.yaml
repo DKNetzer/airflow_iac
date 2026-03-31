@@ -39,7 +39,7 @@ scheduler:
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--auto-iam-authn"
+        - "--enable-iam-login"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:

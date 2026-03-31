@@ -8,7 +8,3 @@ variable "authorized_vpn_cidr" {
   description = "Corporate VPN CIDR allowed to reach the private K8s API."
   type        = string
 }
-# Add this one; it helps the Helm provider know when the cluster is ready
-output "cluster_name" {
-  value = google_container_cluster.airflow_cluster.name
-}
