@@ -42,6 +42,7 @@ resource "google_compute_router_nat" "cloud_nat" {
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
   min_ports_per_vm                   = 4096 # DDL FIX for parallel load
+
 }
 
 # DDL Section 3.1: Firewall
@@ -56,4 +57,20 @@ resource "google_compute_firewall" "allow_vpn_to_master" {
   }
 
   source_ranges = [var.authorized_vpn_cidr]
+}
+
+# 1. Reserve an IP range for the private service connection
+resource "google_compute_global_address" "private_ip_address" {
+  name          = "${var.customer}-sqldb-peering"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.airflow_vpc.id
+}
+
+# 2. Establish the private connection (The Handshake)
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.airflow_vpc.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
 }

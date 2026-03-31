@@ -1,69 +1,129 @@
-# DDL Section 8: Airflow configuration
+# ── Executor ──────────────────────────────────────────────────────────────────
 executor: "KubernetesExecutor"
 
-# 1. Database Connection
+# ── Disable bundled Postgres (using Cloud SQL instead) ────────────────────────
 postgresql:
   enabled: false
 
+# ── DB connection via IAM auth proxy (NO password) ───────────────────────────
 data:
-  metadataSecretName: "airflow-db-password"
+  metadataConnection:
+    user: "dkn-airflow-sa@jutomate-playground.iam"
+    host: 127.0.0.1
+    port: 5432
+    db: airflow
+    sslmode: disable
 
-externalDatabase:
-  type: postgres
-  host: "127.0.0.1" 
-  port: 5432
-  database: "airflow"
-  user: "airflow"
-  passwordSecretName: "airflow-db-password"
-  passwordSecretKey: "password"
+# ── Remote logging to GCS ─────────────────────────────────────────────────────
+config:
+  logging:
+    remote_logging: "True"
+    remote_base_log_folder: "gs://dkn-airflow-logs-dev/logs"
+    remote_log_conn_id: "google_cloud_default"
 
-# 2. Component Specific Configs
-# Each component must have its own proxy to talk to the DB at 127.0.0.1
+# ── Workload Identity service account ─────────────────────────────────────────
+serviceAccount:
+  create: false
+  name: "airflow-worker"
+  annotations:
+    iam.gke.io/gcp-service-account: "dkn-airflow-worker@jutomate-playground.iam.gserviceaccount.com"
+
+# ── Scheduler ─────────────────────────────────────────────────────────────────
 scheduler:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
   extraContainers:
     - name: cloud-sql-proxy
-      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.1.0
-      args: ["--private-ip", "jutomate-playground:us-central1:dkn-airflow-db"]
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+      args:
+        - "--private-ip"
+        - "--auto-iam-authn"
+        - "--port=5432"
+        - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
+      resources:
+        requests: { cpu: "50m", memory: "128Mi" }
+        limits:   { cpu: "100m", memory: "256Mi" }
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532
+        allowPrivilegeEscalation: false
 
+# ── Webserver ─────────────────────────────────────────────────────────────────
 webserver:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
   extraContainers:
     - name: cloud-sql-proxy
-      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.1.0
-      args: ["--private-ip", "jutomate-playground:us-central1:dkn-airflow-db"]
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+      args:
+        - "--private-ip"
+        - "--enable-iam-login"
+        - "--port=5432"
+        - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
+      resources:
+        requests: { cpu: "50m", memory: "128Mi" }
+        limits:   { cpu: "100m", memory: "256Mi" }
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532
+        allowPrivilegeEscalation: false
 
-# This fixes the "1/1" issue for the migration job
+# ── Workers ───────────────────────────────────────────────────────────────────
+workers:
+  nodeSelector:
+    cloud.google.com/gke-spot: "true"
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+  extraContainers:
+    - name: cloud-sql-proxy
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+      args:
+        - "--private-ip"
+        - "--enable-iam-login"
+        - "--port=5432"
+        - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
+      resources:
+        requests: { cpu: "50m", memory: "128Mi" }
+        limits:   { cpu: "100m", memory: "256Mi" }
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+
+# ── Migration & user-creation jobs ───────────────────────────────────────────
 migrateDatabaseJob:
   extraContainers:
     - name: cloud-sql-proxy
-      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.1.0
-      args: ["--private-ip", "jutomate-playground:us-central1:dkn-airflow-db"]
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+      args: ["--private-ip", "--enable-iam-login", "--port=5432",
+             "jutomate-playground:us-central1:dkn-airflow-pg-dev"]
+      resources:
+        requests: { cpu: "50m", memory: "128Mi" }
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532
+        allowPrivilegeEscalation: false
 
-# This fixes the user creation job
 createUserJob:
   extraContainers:
     - name: cloud-sql-proxy
-      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.1.0
-      args: ["--private-ip", "jutomate-playground:us-central1:dkn-airflow-db"]
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+      args: ["--private-ip", "--enable-iam-login", "--port=5432",
+             "jutomate-playground:us-central1:dkn-airflow-pg-dev"]
+      resources:
+        requests: { cpu: "50m", memory: "128Mi" }
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532
+        allowPrivilegeEscalation: false
 
-# 3. Security & Workload Identity
-serviceAccount:
-  create: true
-  annotations:
-    iam.gke.io/gcp-service-account: "dkn-airflow-sa@jutomate-playground.iam.gserviceaccount.com"
-
-# 4. GitHub Integration
+# ── Git-Sync DAG delivery ─────────────────────────────────────────────────────
 dags:
   gitSync:
     enabled: true
@@ -72,5 +132,9 @@ dags:
     subPath: "dags"
     sshKeySecret: "airflow-ssh-git"
 
-# 5. Webserver Config
-webserverSecretKey: "89898989898989898989898989898989"
+# ── Disable local log PVCs ────────────────────────────────────────────────────
+logs:
+  persistence:
+    enabled: false
+
+webserverSecretKeySecretName: "airflow-webserver-secret-key"
