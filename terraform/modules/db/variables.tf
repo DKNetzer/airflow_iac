@@ -7,6 +7,7 @@ variable "cloud_sql_tier" {
   type    = string
   default = "db-g1-small"
 }
-
-# db_password intentionally removed — IAM auth only
-
+variable "private_vpc_connection_id" {
+  description = "ID of the VPC peering connection from the networking module. Used to enforce depends_on ordering."
+  type        = string
+}

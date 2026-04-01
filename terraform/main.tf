@@ -105,13 +105,14 @@ module "gke" {
 
 
 module "db" {
-  source      = "./modules/db"
-  project_id  = var.project_id
-  region      = var.region
-  customer    = var.customer
-  environment = var.environment
-  network_id  = module.networking.network_id # No db_password — IAM Authentication handles access, zero passwords
-  depends_on = [module.networking]
+  source                    = "./modules/db"
+  project_id                = var.project_id
+  region                    = var.region
+  customer                  = var.customer
+  environment               = var.environment
+  network_id                = module.networking.network_id
+  cloud_sql_tier            = var.cloud_sql_tier
+  private_vpc_connection_id = module.networking.private_vpc_connection_id
 }
 
 

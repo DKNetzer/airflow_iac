@@ -1,39 +1,24 @@
-# Required for Cloud SQL Private IP — must exist before the DB instance
-resource "google_compute_global_address" "private_ip_range" {
-  name          = "${var.customer}-sql-private-range"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = var.network_id
-}
-
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = var.network_id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
-}
-
 resource "google_sql_database_instance" "airflow_db" {
-  name             = "${var.customer}-airflow-pg-${var.environment}"
-  database_version = "POSTGRES_15"
-  region           = var.region
-  deletion_protection = true   # Prevents accidental terraform destroy
- 
+  name                = "${var.customer}-airflow-pg-${var.environment}"
+  database_version    = "POSTGRES_15"
+  region              = var.region
+  deletion_protection = true
+
   settings {
     tier              = var.cloud_sql_tier
     availability_type = var.environment == "prod" ? "REGIONAL" : "ZONAL"
- 
+
     ip_configuration {
-      ipv4_enabled    = false
-      private_network = var.network_id
+      ipv4_enabled                                  = false
+      private_network                               = var.network_id
       enable_private_path_for_google_cloud_services = true
     }
- 
+
     database_flags {
       name  = "cloudsql.iam_authentication"
       value = "on"
     }
- 
+
     backup_configuration {
       enabled                        = true
       start_time                     = "02:00"
@@ -45,8 +30,10 @@ resource "google_sql_database_instance" "airflow_db" {
       }
     }
   }
-  depends_on = [google_service_networking_connection.private_vpc_connection]
- } 
+
+  depends_on = [var.private_vpc_connection_id]
+}
+
 resource "google_sql_database" "airflow" {
   name     = "airflow"
   instance = google_sql_database_instance.airflow_db.name

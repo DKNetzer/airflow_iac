@@ -1,5 +1,5 @@
 resource "google_container_cluster" "airflow_cluster" {
-  provider = "google-beta"          # ← ADD THIS LINE at the top
+  provider = google-beta
   name     = "${var.customer}-gke"
   location = var.region
   project  = var.project_id
@@ -29,14 +29,6 @@ resource "google_container_cluster" "airflow_cluster" {
   ip_allocation_policy {
     cluster_secondary_range_name  = "gke-pods"
     services_secondary_range_name = "gke-services"
-  }
-
-  workload_identity_config {
-    workload_pool = "${var.project_id}.svc.id.goog"
-  }
-
-  secret_manager_config {
-    enabled = true
   }
 
   datapath_provider = "ADVANCED_DATAPATH"

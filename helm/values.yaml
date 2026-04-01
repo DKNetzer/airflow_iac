@@ -23,7 +23,7 @@ config:
 
 # ── Workload Identity service account ─────────────────────────────────────────
 serviceAccount:
-  create: false
+  create: true
   name: "airflow-worker"
   annotations:
     iam.gke.io/gcp-service-account: "dkn-airflow-worker@jutomate-playground.iam.gserviceaccount.com"
@@ -39,7 +39,7 @@ scheduler:
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--enable-iam-login"
+        - "--auto-iam-authn"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
@@ -60,7 +60,7 @@ webserver:
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--enable-iam-login"
+        - "--auto-iam-authn"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
@@ -88,7 +88,7 @@ workers:
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--enable-iam-login"
+        - "--auto-iam-authn"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
@@ -100,11 +100,17 @@ workers:
 
 # ── Migration & user-creation jobs ───────────────────────────────────────────
 migrateDatabaseJob:
+  serviceAccount:
+    annotations:
+      iam.gke.io/gcp-service-account: "dkn-airflow-worker@jutomate-playground.iam.gserviceaccount.com"
   extraContainers:
     - name: cloud-sql-proxy
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-      args: ["--private-ip", "--enable-iam-login", "--port=5432",
-             "jutomate-playground:us-central1:dkn-airflow-pg-dev"]
+      args:
+        - "--private-ip"
+        - "--auto-iam-authn"
+        - "--port=5432"
+        - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
         requests: { cpu: "50m", memory: "128Mi" }
       securityContext:
@@ -112,11 +118,17 @@ migrateDatabaseJob:
         allowPrivilegeEscalation: false
 
 createUserJob:
+  serviceAccount:
+    annotations:
+      iam.gke.io/gcp-service-account: "dkn-airflow-worker@jutomate-playground.iam.gserviceaccount.com"
   extraContainers:
     - name: cloud-sql-proxy
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-      args: ["--private-ip", "--enable-iam-login", "--port=5432",
-             "jutomate-playground:us-central1:dkn-airflow-pg-dev"]
+      args:
+        - "--private-ip"
+        - "--auto-iam-authn"
+        - "--port=5432"
+        - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
         requests: { cpu: "50m", memory: "128Mi" }
       securityContext:
