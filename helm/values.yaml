@@ -1,14 +1,15 @@
 # ── Executor ──────────────────────────────────────────────────────────────────
 executor: "KubernetesExecutor"
 
-# ── Disable bundled Postgres (using Cloud SQL instead) ────────────────────────
+# ── Disable bundled Postgres ──────────────────────────────────────────────────
 postgresql:
   enabled: false
 
-# ── DB connection via IAM auth proxy (NO password) ───────────────────────────
+# ── DB connection via password ────────────────────────────────────────────────
 data:
   metadataConnection:
-    user: "dkn-airflow-sa@jutomate-playground.iam"
+    user: airflow
+    pass: AirflowPoc2026
     host: 127.0.0.1
     port: 5432
     db: airflow
@@ -30,6 +31,8 @@ serviceAccount:
 
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 scheduler:
+  waitForMigrations:
+    enabled: false
   resources:
     requests:
       cpu: "500m"
@@ -39,7 +42,6 @@ scheduler:
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--auto-iam-authn"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
@@ -51,6 +53,8 @@ scheduler:
 
 # ── Webserver ─────────────────────────────────────────────────────────────────
 webserver:
+  waitForMigrations:
+    enabled: false
   resources:
     requests:
       cpu: "500m"
@@ -60,7 +64,6 @@ webserver:
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--auto-iam-authn"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
@@ -70,7 +73,29 @@ webserver:
         runAsNonRoot: true
         allowPrivilegeEscalation: false
 
-# ── Workers ───────────────────────────────────────────────────────────────────
+# ── Triggerer ─────────────────────────────────────────────────────────────────
+triggerer:
+  waitForMigrations:
+    enabled: false
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+  extraContainers:
+    - name: cloud-sql-proxy
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+      args:
+        - "--private-ip"
+        - "--port=5432"
+        - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
+      resources:
+        requests: { cpu: "50m", memory: "128Mi" }
+        limits:   { cpu: "100m", memory: "256Mi" }
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+
+# ── Workers (Spot instances) ──────────────────────────────────────────────────
 workers:
   nodeSelector:
     cloud.google.com/gke-spot: "true"
@@ -88,7 +113,6 @@ workers:
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--auto-iam-authn"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
@@ -98,17 +122,13 @@ workers:
         runAsNonRoot: true
         allowPrivilegeEscalation: false
 
-# ── Migration & user-creation jobs ───────────────────────────────────────────
+# ── Migration job ─────────────────────────────────────────────────────────────
 migrateDatabaseJob:
-  serviceAccount:
-    annotations:
-      iam.gke.io/gcp-service-account: "dkn-airflow-worker@jutomate-playground.iam.gserviceaccount.com"
   extraContainers:
     - name: cloud-sql-proxy
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--auto-iam-authn"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
@@ -117,16 +137,13 @@ migrateDatabaseJob:
         runAsNonRoot: true
         allowPrivilegeEscalation: false
 
+# ── Create user job ───────────────────────────────────────────────────────────
 createUserJob:
-  serviceAccount:
-    annotations:
-      iam.gke.io/gcp-service-account: "dkn-airflow-worker@jutomate-playground.iam.gserviceaccount.com"
   extraContainers:
     - name: cloud-sql-proxy
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
       args:
         - "--private-ip"
-        - "--auto-iam-authn"
         - "--port=5432"
         - "jutomate-playground:us-central1:dkn-airflow-pg-dev"
       resources:
