@@ -11,3 +11,9 @@ airflow_github_key.pub
 .terraform/
 *.tfstate
 *.tfstate.backup
+
+# Ignore Terraform state and secrets
+*.tfstate
+*.tfstate.backup
+.terraform/
+terraform.tfvars
